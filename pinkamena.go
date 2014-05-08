@@ -3,14 +3,17 @@ package main
 import "fmt"
 import "net/http"
 import "net/http/httputil"
+import "io/ioutil"
 import "net/url"
 import "time"
+import "bufio"
 import "log"
+import "strconv"
+import "bytes"
 import "encoding/base64"
 import "flag"
 import "os"
 import "github.com/elazarl/goproxy"
-
 
 func Log(handler http.Handler) http.Handler {
     return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -89,6 +92,81 @@ func runProxy() {
 }
 
 func runPlayback() {
+    f, err := os.Open(*playback)
+    if err != nil {
+        panic(err)
+    }
+
+    scanner := bufio.NewScanner(f)
+    var firstTime int64 = -1
+    var times []int64
+    var requests []*http.Request
+    i := 0
+    for scanner.Scan() {
+        if i % 4 == 0 {
+            value, err := strconv.ParseInt(scanner.Text(), 10, 64)
+            if (err != nil) {
+                panic(err)
+            }
+            if (firstTime == -1) {
+                firstTime = value
+            }
+            times = append(times, value - firstTime)
+        } else if i % 4 == 2 {
+            value, err := base64.StdEncoding.DecodeString(scanner.Text())
+            reader := bufio.NewReader(bytes.NewReader(value))
+            if (err != nil) {
+                panic(err)
+            }
+
+            request, err := http.ReadRequest(reader)
+
+            if (err != nil) {
+                panic(err)
+            }
+
+            request_url, err := url.Parse(request.RequestURI)
+            if err != nil {
+                panic(err)
+            }
+
+            request.RequestURI = ""
+            request.URL        = request_url
+            request.URL.Scheme = "https"
+            request.URL.Host   = request.Host
+
+            requests = append(requests, request)
+        }
+        i += 1
+    }
+
+    if err := scanner.Err(); err != nil {
+        panic(err)
+    }
+
+    c := make(chan string, 100)
+    for i := 0; i < 10; i++ {
+        fmt.Println("hi")
+        go func(c chan string) {
+            c <- "hi2"
+            client := http.Client{}
+            for v := range times {
+                response, err := client.Do(requests[v])
+                if (err != nil) {
+                    panic(err)
+                }
+                body, err := ioutil.ReadAll(response.Body)
+                c <- fmt.Sprint(body)
+                c <- fmt.Sprint(requests[v])
+                c <- fmt.Sprint(response)
+                time.Sleep(time.Duration(times[v]) * time.Millisecond)
+            }
+        }(c)
+
+    }
+    for {
+        fmt.Println(<- c)
+    }
 }
 
 func main() {
@@ -103,5 +181,8 @@ func main() {
         os.Exit(1)
     } else if (*record && *target != "") {
         runProxy()
+    } else if (*playback != "") {
+        runPlayback()
+        for{}
     }
 }
