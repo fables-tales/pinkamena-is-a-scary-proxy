@@ -22,20 +22,6 @@ func Log(handler http.Handler) http.Handler {
     })
 }
 
-func IndexPage(wr io.Writer) {
-    template_bytes, err := ioutil.ReadFile("templates/index.html")
-    if err != nil {
-        log.Fatal(err)
-    }
-    template_string := string(template_bytes[:])
-
-    template_renderer, err := template.New("index").Parse(template_string)
-    if err != nil {
-        log.Fatal(err)
-    }
-    template_renderer.Execute(wr, nil)
-}
-
 var record = flag.Bool("record", false, "run a http proxy that will record requests")
 var playback = flag.String("playback", "", "playback a recoreded session")
 var target = flag.String("target", "", "the target host to record")
