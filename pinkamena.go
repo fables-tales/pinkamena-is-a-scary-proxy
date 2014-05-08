@@ -42,7 +42,7 @@ func runProxy() {
 
     startTimeMilis := getTimeMilis()
 
-    var c chan string = make(chan string)
+    var c chan string = make(chan string, 100)
     go func() {
         for {
             line := <- c
