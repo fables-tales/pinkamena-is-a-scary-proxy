@@ -42,6 +42,15 @@ func runProxy() {
 
     startTimeMilis := getTimeMilis()
 
+    var c chan string = make(chan string)
+    go func() {
+        for {
+            line := <- c
+            fo.WriteString(line)
+            fo.Sync()
+        }
+    }()
+
     proxy.OnRequest().DoFunc(func(r *http.Request,ctx *goproxy.ProxyCtx)(*http.Request,*http.Response) {
         fmt.Println(r.Host)
         request_url, err := url.Parse(r.RequestURI)
@@ -59,15 +68,13 @@ func runProxy() {
         r.URL.User   = nil
 
         currentTimeMilis := getTimeMilis()
-        fo.WriteString(fmt.Sprint(currentTimeMilis-startTimeMilis))
-        fo.WriteString("\nLOLPONIES\n")
-
         var requestBytes []byte
         requestBytes, err = httputil.DumpRequest(r, true)
-        fo.WriteString(base64.StdEncoding.EncodeToString(requestBytes))
 
-        fo.WriteString("\nLOLPONIES\n")
-        fo.Sync()
+        c <- fmt.Sprint(currentTimeMilis-startTimeMilis)
+        c <- "\nLOLPONIES\n"
+        c <- base64.StdEncoding.EncodeToString(requestBytes)
+        c <- "\nLOLPONIES\n"
 
         resp, err := client.Do(r)
         if err != nil {
@@ -79,6 +86,9 @@ func runProxy() {
     http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static/"))))
     fmt.Println("Serving on http://localhost:8080")
     log.Fatal(http.ListenAndServe(":8080", proxy))
+}
+
+func runPlayback() {
 }
 
 func main() {
