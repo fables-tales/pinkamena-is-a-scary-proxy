@@ -1,4 +1,10 @@
-pinkamena-is-a-scary-proxy
+Pinkamena is a scary proxy
 ==========================
 
-A recording/playback HTTP proxy that supports request amplification and pluggable middlewares
+
+Example usage:
+
+```
+$ pinkamena --record --target http://localhost:5443
+Serving on http://localhost:8080
+```
