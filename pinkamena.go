@@ -7,9 +7,6 @@ import "net/url"
 import "time"
 import "log"
 import "encoding/base64"
-import "text/template"
-import "io/ioutil"
-import "io"
 import "flag"
 import "os"
 import "github.com/elazarl/goproxy"
@@ -52,6 +49,8 @@ func runProxy() {
             panic(err)
         }
 
+        log.Print("Rewriting request on ", r.Host, " to ", *target)
+
         r.RequestURI = ""
         r.URL        = request_url
         r.URL.Scheme = "https"
@@ -59,14 +58,14 @@ func runProxy() {
         r.URL.Host   = *target
         r.URL.User   = nil
 
-        var requestBytes []byte
-        requestBytes, err = httputil.DumpRequest(r, true)
         currentTimeMilis := getTimeMilis()
-        fmt.Println(currentTimeMilis,startTimeMilis)
-        fmt.Println(currentTimeMilis-startTimeMilis)
         fo.WriteString(fmt.Sprint(currentTimeMilis-startTimeMilis))
         fo.WriteString("\nLOLPONIES\n")
+
+        var requestBytes []byte
+        requestBytes, err = httputil.DumpRequest(r, true)
         fo.WriteString(base64.StdEncoding.EncodeToString(requestBytes))
+
         fo.WriteString("\nLOLPONIES\n")
         fo.Sync()
 
