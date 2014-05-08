@@ -4,6 +4,7 @@ import "fmt"
 import "net/http"
 import "net/http/httputil"
 import "net/url"
+import "time"
 import "log"
 import "text/template"
 import "io/ioutil"
@@ -38,6 +39,10 @@ var record = flag.Bool("record", false, "run a http proxy that will record reque
 var playback = flag.String("playback", "", "playback a recoreded session")
 var target = flag.String("target", "", "the target host to record")
 
+func getTimeMilis() int64 {
+    return time.Now().UnixNano()%1e6/1e3
+}
+
 func main() {
     flag.Parse()
     if (*playback == "" && *record == false) {
@@ -61,6 +66,8 @@ func main() {
             }
         }()
 
+        startTimeMilis := getTimeMilis()
+
         proxy.OnRequest().DoFunc(func(r *http.Request,ctx *goproxy.ProxyCtx)(*http.Request,*http.Response) {
             fmt.Println(r.Host)
             request_url, err := url.Parse(r.RequestURI)
@@ -77,8 +84,12 @@ func main() {
 
             var requestBytes []byte
             requestBytes, err = httputil.DumpRequest(r, true)
+            currentTimeMilis := getTimeMilis()
+            fo.WriteString(fmt.Sprint(currentTimeMilis-startTimeMilis))
+            fo.Write([]byte{0xff,0xff})
             fo.Write(requestBytes)
             fo.Write([]byte{0xff,0xff,0xff})
+            fo.Sync()
 
             resp, err := client.Do(r)
             if err != nil {
