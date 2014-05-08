@@ -40,7 +40,59 @@ var playback = flag.String("playback", "", "playback a recoreded session")
 var target = flag.String("target", "", "the target host to record")
 
 func getTimeMilis() int64 {
-    return time.Now().UnixNano()%1e6/1e3
+    return time.Now().UnixNano()/1e6
+}
+
+func runProxy() {
+    proxy := goproxy.NewProxyHttpServer()
+    proxy.Verbose = true
+    client := http.Client{}
+    fo, err := os.Create(".requests")
+    if err != nil { panic(err) }
+    // close fo on exit and check for its returned error
+    defer func() {
+        if err := fo.Close(); err != nil {
+            panic(err)
+        }
+    }()
+
+    startTimeMilis := getTimeMilis()
+
+    proxy.OnRequest().DoFunc(func(r *http.Request,ctx *goproxy.ProxyCtx)(*http.Request,*http.Response) {
+        fmt.Println(r.Host)
+        request_url, err := url.Parse(r.RequestURI)
+        if err != nil {
+            panic(err)
+        }
+
+        r.RequestURI = ""
+        r.URL        = request_url
+        r.URL.Scheme = "https"
+        r.Host       = *target
+        r.URL.Host   = *target
+        r.URL.User   = nil
+
+        var requestBytes []byte
+        requestBytes, err = httputil.DumpRequest(r, true)
+        currentTimeMilis := getTimeMilis()
+        fmt.Println(currentTimeMilis,startTimeMilis)
+        fmt.Println(currentTimeMilis-startTimeMilis)
+        fo.WriteString(fmt.Sprint(currentTimeMilis-startTimeMilis))
+        fo.WriteString("\nLOLPONIES\n")
+        fo.Write(requestBytes)
+        fo.WriteString("\nLOLPONIES\n")
+        fo.Sync()
+
+        resp, err := client.Do(r)
+        if err != nil {
+            panic(err)
+        }
+
+        return nil, resp
+    })
+    http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static/"))))
+    fmt.Println("Serving on http://localhost:8080")
+    log.Fatal(http.ListenAndServe(":8080", proxy))
 }
 
 func main() {
@@ -54,52 +106,6 @@ func main() {
         flag.Usage()
         os.Exit(1)
     } else if (*record && *target != "") {
-        proxy := goproxy.NewProxyHttpServer()
-        proxy.Verbose = true
-        client := http.Client{}
-        fo, err := os.Create(".requests")
-        if err != nil { panic(err) }
-        // close fo on exit and check for its returned error
-        defer func() {
-            if err := fo.Close(); err != nil {
-                panic(err)
-            }
-        }()
-
-        startTimeMilis := getTimeMilis()
-
-        proxy.OnRequest().DoFunc(func(r *http.Request,ctx *goproxy.ProxyCtx)(*http.Request,*http.Response) {
-            fmt.Println(r.Host)
-            request_url, err := url.Parse(r.RequestURI)
-            if err != nil {
-                panic(err)
-            }
-
-            r.RequestURI = ""
-            r.URL        = request_url
-            r.URL.Scheme = "https"
-            r.Host       = *target
-            r.URL.Host   = *target
-            r.URL.User   = nil
-
-            var requestBytes []byte
-            requestBytes, err = httputil.DumpRequest(r, true)
-            currentTimeMilis := getTimeMilis()
-            fo.WriteString(fmt.Sprint(currentTimeMilis-startTimeMilis))
-            fo.Write([]byte{0xff,0xff})
-            fo.Write(requestBytes)
-            fo.Write([]byte{0xff,0xff,0xff})
-            fo.Sync()
-
-            resp, err := client.Do(r)
-            if err != nil {
-                panic(err)
-            }
-
-            return nil, resp
-        })
-        http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static/"))))
-        fmt.Println("Serving on http://localhost:8080")
-        log.Fatal(http.ListenAndServe(":8080", proxy))
+        runProxy()
     }
 }
