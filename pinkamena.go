@@ -6,6 +6,7 @@ import "net/http/httputil"
 import "net/url"
 import "time"
 import "log"
+import "encoding/base64"
 import "text/template"
 import "io/ioutil"
 import "io"
@@ -79,7 +80,7 @@ func runProxy() {
         fmt.Println(currentTimeMilis-startTimeMilis)
         fo.WriteString(fmt.Sprint(currentTimeMilis-startTimeMilis))
         fo.WriteString("\nLOLPONIES\n")
-        fo.Write(requestBytes)
+        fo.WriteString(base64.StdEncoding.EncodeToString(requestBytes))
         fo.WriteString("\nLOLPONIES\n")
         fo.Sync()
 
